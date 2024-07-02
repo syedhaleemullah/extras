@@ -1,0 +1,200 @@
+Great! Let's start from scratch and cover the steps required to deploy an Angular project on Minikube. This will include creating a new Angular project, containerizing it using Docker, and deploying it on Minikube using Kubernetes. We'll cover the following topics:
+
+1. **Setting up the Environment**:
+    - Install Minikube
+    - Install kubectl
+    - Install Docker
+2. **Creating an Angular Project**:
+    - Install Angular CLI
+    - Create a new Angular project
+3. **Containerizing the Angular Project**:
+    - Create a Dockerfile
+    - Build and test the Docker image
+4. **Setting up Minikube**:
+    - Start Minikube
+    - Configure Docker to use Minikube's Docker daemon
+5. **Deploying the Angular Project on Minikube**:
+    - Create Kubernetes deployment and service files
+    - Deploy to Minikube
+    - Access the deployed application
+
+### 1. Setting up the Environment
+
+#### Install Minikube
+1. **Install Minikube**:
+
+   ```bash
+   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+   sudo install minikube-linux-amd64 /usr/local/bin/minikube
+   ```
+
+2. **Start Minikube**:
+
+   ```bash
+   minikube start
+   ```
+
+#### Install kubectl
+1. **Install kubectl**:
+
+   ```bash
+   curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+   sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+   ```
+
+#### Install Docker
+1. **Install Docker**:
+
+   ```bash
+   sudo apt update
+   sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+   sudo apt update
+   sudo apt install -y docker-ce
+   sudo usermod -aG docker $USER 
+   newgrp docker
+   ```
+
+### 2. Creating an Angular Project
+
+1. **Install Angular CLI**:
+
+   ```bash
+   npm install -g @angular/cli
+   ```
+
+2. **Create a new Angular project**:
+
+   ```bash
+   ng new my-angular-app
+   cd my-angular-app
+   ng serve
+   ```
+
+   Visit `http://localhost:4200` to see the Angular app running locally.
+
+### 3. Containerizing the Angular Project
+
+1. **Create a Dockerfile** in the root of the Angular project:
+
+   ```dockerfile
+   # Use an official Node.js runtime as a parent image
+   FROM node:14 AS build
+
+   # Set the working directory
+   WORKDIR /app
+
+   # Copy the package.json and package-lock.json files
+   COPY package*.json ./
+
+   # Install dependencies
+   RUN npm install
+
+   # Copy the rest of the application code
+   COPY . .
+
+   # Build the Angular application
+   RUN npm run build --prod
+
+   # Stage 2: Serve the application with Nginx
+   FROM nginx:alpine
+
+   # Copy the build output to replace the default Nginx contents
+   COPY --from=build /app/dist/my-angular-app /usr/share/nginx/html
+
+   # Expose port 80
+   EXPOSE 80
+
+   # Start Nginx when the container starts
+   CMD ["nginx", "-g", "daemon off;"]
+   ```
+
+2. **Build the Docker image**:
+
+   ```bash
+   docker build -t my-angular-app .
+   ```
+
+3. **Run the Docker container to test**:
+
+   ```bash
+   docker run -d -p 8080:80 my-angular-app
+   ```
+
+   Visit `http://localhost:8080` to see the Angular app running inside the Docker container.
+
+### 4. Setting up Minikube
+
+1. **Start Minikube**:
+
+   ```bash
+   minikube start
+   ```
+
+2. **Configure Docker to use Minikube's Docker daemon**:
+
+   ```bash
+   eval $(minikube docker-env)
+   ```
+
+### 5. Deploying the Angular Project on Minikube
+
+1. **Create a Kubernetes deployment file** (`deployment.yaml`):
+
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: my-angular-app
+   spec:
+     replicas: 2
+     selector:
+       matchLabels:
+         app: my-angular-app
+     template:
+       metadata:
+         labels:
+           app: my-angular-app
+       spec:
+         containers:
+         - name: my-angular-app
+           image: my-angular-app
+           ports:
+           - containerPort: 80
+   ```
+
+2. **Create a Kubernetes service file** (`service.yaml`):
+
+   ```yaml
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: my-angular-app
+   spec:
+     type: NodePort
+     selector:
+       app: my-angular-app
+     ports:
+       - protocol: TCP
+         port: 80
+         targetPort: 80
+         nodePort: 30000
+   ```
+
+3. **Deploy to Minikube**:
+
+   ```bash
+   kubectl apply -f deployment.yaml
+   kubectl apply -f service.yaml
+   ```
+
+4. **Access the deployed application**:
+
+   ```bash
+   minikube service my-angular-app
+   ```
+
+This will open a browser window with the deployed Angular application running on Minikube.
+
+You should now have a basic understanding of how to deploy an Angular application on Minikube using Kubernetes. Let me know if you need further details on any specific step or concept!
